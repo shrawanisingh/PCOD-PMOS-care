@@ -1,4 +1,11 @@
-google-genai
 streamlit
+google-generativeai
+langgraph
+langchain-core
 python-dotenv
 reportlab
+sentence-transformers
+faiss-cpu
+rank-bm25
+pypdf
+langchain-text-splitters

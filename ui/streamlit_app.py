@@ -1,10 +1,13 @@
 import os
 import sys
-import streamlit as st
+
 
 # Ensure the project root is on the Python path so local imports work when
 # running `streamlit run ui/streamlit_app.py` from any directory.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import streamlit as st
+from graph.workflow import graph
 
 from services.pdf_service import generate_pdf
 from services.history_service import (
@@ -78,83 +81,64 @@ if mock_mode:
 
 if st.button("Analyze"):
 
-    from agents.supervisor import run_supervisor
-    from agents.clinical import run_clinical
-    from agents.metabolic import run_metabolic
-    from agents.lifestyle import run_lifestyle
-    from agents.planner import run_planner
+    with st.spinner("Analyzing patient profile..."):
 
-    routing = run_supervisor(query)
+        result = graph.invoke(
+            {
+                "query": query
+            }
+        )
 
-    st.info(
-        f"""
-        Selected Specialists:
+    report = result.get("final_report", "")
 
-        Clinical: {routing['clinical']}
-        Metabolic: {routing['metabolic']}
-        Lifestyle: {routing['lifestyle']}
-        """
+    clinical = result.get(
+        "clinical",
+        ""
     )
 
-    clinical = ""
-    metabolic = ""
-    lifestyle = ""
+    metabolic = result.get(
+        "metabolic",
+        ""
+    )
 
-    if routing["clinical"]:
-        with st.spinner("Clinical specialist analyzing..."):
-            clinical = run_clinical(query)
+    lifestyle = result.get(
+        "lifestyle",
+        ""
+    )
 
-    if routing["metabolic"]:
-        with st.spinner("Metabolic specialist analyzing..."):
-            metabolic = run_metabolic(query)
+    routing = result.get(
+        "routing",
+        {}
+    )
 
-    if routing["lifestyle"]:
-        with st.spinner("Lifestyle specialist analyzing..."):
-            lifestyle = run_lifestyle(query)
+    st.success("Assessment completed.")
 
-    combined = f"""
-    CLINICAL:
-    {clinical}
-
-    METABOLIC:
-    {metabolic}
-
-    LIFESTYLE:
-    {lifestyle}
-    """
-
-    with st.spinner("Generating final report..."):
-        report = run_planner(combined)
-        save_history(query, report)
-        pdf_file = generate_pdf(report)
-
-    st.header("📋 OvaCare Assessment")
+    st.header("Final Report")
     st.markdown(report)
-
-    with open(pdf_file, "rb") as file:
-
-        st.download_button(
-            label="Download Report",
-            data=file,
-            file_name="ovacare_report.pdf",
-            mime="application/pdf"
-        )
-    
-
-    if clinical:
-        with st.expander("🩺 Clinical Specialist"):
-            st.markdown(clinical)
-
-    if metabolic:
-        with st.expander("⚖️ Metabolic Specialist"):
-            st.markdown(metabolic)
-
-    if lifestyle:
-        with st.expander("🌿 Lifestyle Specialist"):
-            st.markdown(lifestyle)
 
     st.divider()
 
-    st.caption(
-        "This information is educational and is not a medical diagnosis."
-    )
+    st.subheader("Specialist Analysis")
+
+    if clinical:
+        with st.expander(
+            "🩺 Clinical Specialist"
+        ):
+            st.markdown(clinical)
+
+    if metabolic:
+        with st.expander(
+            "🍎 Metabolic Specialist"
+        ):
+            st.markdown(metabolic)
+
+    if lifestyle:
+        with st.expander(
+            "🌿 Lifestyle Specialist"
+        ):
+            st.markdown(lifestyle)
+
+    with st.expander(
+        "🤖 Supervisor Decision"
+    ):
+        st.json(routing)
